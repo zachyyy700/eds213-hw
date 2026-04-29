@@ -1,0 +1,252 @@
+---
+title: "Data Cleaning"
+format: html
+---
+
+
+```{r}
+#| message: false  
+
+# Libraries
+library(tidyverse)
+
+# file names
+datadir_raw <- file.path("data","raw")
+
+datadir_processed <- file.path("data", "processed/")
+
+species_file <- "ASDN_Daily_species.csv"
+
+snowsurvey_file <- "ASDN_Snow_survey.csv"
+```
+
+
+## Snow survey data
+
+::: {.callout-note title="Our task and you have to accept it :)"}
+Our goal is to clean the `Snow_cover` column so it is ready to ingest in our database. Your mission is to find out potential problems and fix them!
+:::
+
+### Data Exploration
+
+Import the snow survey
+
+```{r}
+# Import the species
+snowsurvey_csv <- read_csv(file.path(datadir_raw, snowsurvey_file)) |> 
+  janitor::clean_names()
+
+glimpse(snowsurvey_csv)
+
+```
+
+Ok, the types are not what we were expecting for the percentages of cover. Let's find out why:
+
+```{r}
+snowsurvey_csv %>%
+  count(snow_cover)
+```
+
+Let's focus on the non-numeric values as a starting point:
+
+```{r}
+snowsurvey_csv |> 
+  count(snow_cover) |> 
+
+  # convert to numeric type, only keep what can't be coerced
+  filter(is.na(as.numeric(snow_cover)))
+```
+
+### Data cleaning
+
+Ok, we found our problematic values that are not numeric. There are a non-negligible number of cells with a dot as value. There is no mention of using this symbol in the metadata. We should probably have a look at those rows.
+
+#### `.` values
+
+```{r}
+snowsurvey_csv %>%
+  filter(snow_cover == ".") %>%
+  View()
+```
+
+Interestingly, when there is a "dot" for snow cover, it is also the case for all the other covers. Let's replace those with NA since there is no supplemental information in the provided metadata about the use of dots
+
+```{r}
+snowsurvey_fixed <- snowsurvey_csv |> 
+  mutate(snow_cover = na_if(snow_cover, "."))
+```
+
+#### `-` values
+
+Is he problem is similar with "-"?
+
+```{r}
+snowsurvey_fixed <- snowsurvey_fixed |> 
+  mutate(snow_cover = na_if(snow_cover, "-"))
+```
+
+#### `n/a` values
+
+"n/a" seems pretty clear regarding how to fix it, but let's have a look first:
+
+Same pattern, let's substitute with NA:
+
+```{r}
+snowsurvey_fixed <- snowsurvey_fixed |> 
+  mutate(snow_cover = na_if(snow_cover, "n/a"))
+```
+
+#### `unk` values
+
+What about "unk"? It is probably an abbreviation for unknown:
+
+```{r}
+snowsurvey_fixed <- snowsurvey_fixed |> 
+  mutate(snow_cover = na_if(snow_cover, "unk"))
+```
+
+#### `<1` values
+
+Finally What should we replace"<1" with?
+
+```{r}
+snowsurvey_fixed <- snowsurvey_fixed |> 
+  mutate(snow_cover = ifelse(snow_cover == '<1', "0", snow_cover))
+```
+
+### Going numeric
+
+Now we can test if we now only have NAs as non numeric values in the column:
+
+```{r}
+snowsurvey_fixed %>%
+  count(snow_cover) %>%
+  filter(is.na(as.numeric(snow_cover)))
+```
+
+Ok, we can do the transformation:
+
+```{r}
+snowsurvey_fixed <- snowsurvey_fixed |> 
+  mutate(snow_cover = as.numeric(snow_cover))
+```
+
+Yeah we have finally a numeric column 🎉. 
+
+
+### Further cleaning
+
+We are dealing with percentages, so we should verify that all the values are between 0 and 100:
+
+```{r}
+ snowsurvey_fixed |> 
+  filter(snow_cover > 100)
+```
+
+We have two values above 100, with an interesting 470%! ☃️ We should probably set those values to NAs:
+
+```{r}
+snowsurvey_fixed <- snowsurvey_fixed |> 
+  replace_when(snowsurvey_fixed$snow_cover > 100 ~ NA)
+```
+
+Let's check for negative values:
+
+```{r}
+ snowsurvey_fixed |> 
+  filter(snow_cover < 0)
+```
+
+No negative value detected ✅
+
+Let's write the presence table to a csv file:
+
+```{r}
+# check if the folder exists
+dir.create(datadir_processed, showWarnings = FALSE)
+
+# write the file
+write_csv(snowsurvey_fixed, file.path(datadir_processed, "snow_cover.csv"))
+```
+
+<hr> 
+
+
+## Species data
+
+::: {.callout-note title="Our task and you have to accept it :)"}
+Our goal is to reformat the species data so it is ready to ingest in our database. Your mission is to find out potential problems and fix them!
+:::
+
+### Data exploration
+
+Import the species csv files with the bird species information:
+
+```{r}
+species_csv <- read_csv(file.path(datadir_raw, species_file)) |> 
+  janitor::clean_names()
+
+glimpse(species_csv)
+```
+
+This data set is stored in a wide format where each species has its own column. This means that every time we discover a new species we will have to add a column. In addition, a bunch of `0` are stored in this table but do not really provide any information. According to the metadata:
+
+```
+The number of individuals seen is recorded for each species, except when individuals were not counted but the species was present (typically for very abundant species), an "X" is shown. The remaining columns list the full-name of species (birds and mammals) recorded for at least study site in at least one year.
+```
+
+This data model is not convenient for a database, we will have to switch to a long format.
+
+
+### Data cleaning
+
+```{r}
+species_long <- species_csv |> 
+  pivot_longer(
+    cols = c(alder_flycatcher:yellow_rumped_warbler),
+    names_to = "species",
+    values_to = "presence",
+    values_transform = list(presence = as.character)
+  )
+```
+
+
+We want to focus on the presence and absence of species and not the count. Let's create a new column for presence where anything else than 0 is considered present
+
+```{r}
+species_presence <- species_long |> 
+  mutate(presence = ifelse(presence == "0", 0, 1))
+  
+```
+
+We can remove some columns: "Num_observers", "All_obs_reported", "Observer_hours" are here to help to compute the effort of observation but since we just want presence and absence, we do not need it. We can also remove all the zeros values to reduce the size of our data set:
+
+```{r}
+species_presence <- species_presence %>%
+  
+
+```
+
+Last but not least, let's have a look at our species list
+
+```{r}
+species_presence %>%
+  filter(species_presence == 1) %>%
+  count(species) %>%
+  arrange(desc(n))
+```
+
+We have 319 species observed in this table. The "convention" seems to be that `_` are used to separate the different parts of a name. Note that it is not clear what type of nomenclature reference is used to pull those names from.
+
+Let's write the presence table to a csv file:
+
+```{r}
+# check if the folder exists
+dir.create(datadir_processed, showWarnings = FALSE)
+
+# write the file
+write_csv(species_presence, file.path(datadir_processed, "species_presence.csv"))
+```
+
+
+

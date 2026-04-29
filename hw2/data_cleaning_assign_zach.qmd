@@ -1,0 +1,103 @@
+---
+title: "Data Cleaning Assignment"
+---
+
+```{r}
+library(tidyverse)
+library(here)
+
+# import data
+snowsurvey <- read_csv(here("data", "processed", "snow_cover.csv")) |> 
+  janitor::clean_names()
+```
+
+```{r}
+# convert string values to numeric, replace non-num values to NA
+snowsurvey_num <- snowsurvey |> 
+  mutate(across(c(water_cover, land_cover, total_cover), ~ as.numeric(.x)))
+```
+
+String values handled, need to handle values outside of range 0-100
+
+```{r}
+# if values are less than 0 or greater than 100, assign to NA
+snowsurvey_range <- snowsurvey_num |> 
+  mutate(across(c(water_cover, land_cover), 
+  ~ ifelse(.x < 0 | .x > 100, NA, .x)))
+```
+
+First, some rows are all NA, with a couple cases:
+
+1. [NA, NA, NA, NA]
+2. [NA, NA, NA, REAL], where REAL is an actual number in the total_cover columns
+
+both cases are not useful and should be dropped.
+
+```{r}
+# drop rows where snow, water, and land cover columns are ALL NA
+snowsurvey_fixed <- snowsurvey_range |> 
+  mutate(all_na = rowSums(is.na(across(c(snow_cover, water_cover, land_cover)))) == 3) |> 
+  filter(all_na == FALSE)
+```
+
+Now that rows with all NAs are dropped, we still have rows with 1 NA that should be zero, in rows like this: [NA, 90, 10, 100]
+
+  - These will be imputed.
+
+```{r}
+# impute rows with 1 NA
+snowsurvey_fixed <- snowsurvey_fixed |> 
+  mutate(across(c(snow_cover, water_cover, land_cover), 
+  ~ if_else(
+    rowSums(is.na(across(c(snow_cover, water_cover, land_cover)))) == 1 & is.na(.x), # if TRUE
+    100 - rowSums(across(c(snow_cover, water_cover, land_cover)), na.rm = TRUE), # impute
+    .x
+  )))
+```
+
+We now are left with rows with two NAs:
+
+1. Imputable case [NA, NA, 100, 100], or a similar combination, fill NAs with zeros
+2. Impossible imputable case [45, NA, NA, 100], these are impossible to impute, we can drop these rows.
+3. Invalid case [50, NA, NA, 50], since we defined the total column to only be 100, we can drop these rows too.
+
+```{r}
+# case 1, impute two na case
+snowsurvey_fixed <- snowsurvey_fixed |> 
+  mutate(across(c(snow_cover, water_cover, land_cover), 
+  ~ if_else(
+    rowSums(is.na(across(c(snow_cover, water_cover, land_cover)))) == 2 & 
+    rowSums(across(c(snow_cover, water_cover, land_cover)), na.rm = TRUE) == 100 &
+    is.na(.x),
+    0,  # if one value is 100, the other two must be 0
+    .x
+  )))
+
+# case 2/3
+snowsurvey_fixed <- snowsurvey_fixed |> 
+  filter(!(total_cover != 100 & 
+           rowSums(is.na(across(c(snow_cover, water_cover, land_cover)))) > 0))
+```
+
+There still seem to be a few cases to handle:
+
+1. *_cover columns do correctly add to 100, total_cover is 100. [90, 0, 10, 100], keep these rows.
+2. *_cover columns don't add up to 100, total_cover is 100. [0, 0, 0, 100], drop these rows.
+3. *_cover columns don't add up to 100, total_cover is not 100. [0, 0, 15, 85], drop these rows.
+
+
+```{r}
+# only keep rows that add to 100
+snowsurvey_fixed <- snowsurvey_fixed |> 
+  filter(
+    snow_cover + water_cover + land_cover == 100,
+    total_cover == 100
+  )
+```
+
+The final output is a dataframe with correct snow, water, & land cover columns which add to 100.
+
+```{r}
+# write to csv
+write_csv(snowsurvey_fixed, "data/processed/all_cover_fixed_zach.csv")
+```
