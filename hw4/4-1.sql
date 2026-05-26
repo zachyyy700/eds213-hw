@@ -6,6 +6,12 @@ duckdb database.duckdb
 SELECT Code, Site_name FROM Site;
 
 -- EXCEPT, (find sites that are missing in the bird eggs table)
-SELECT DISTINCT Code FROM Site
+SELECT Code FROM Site
     WHERE Code NOT IN (SELECT DISTINCT Site FROM Bird_eggs)
-    ORDER BY Site;
+    ORDER BY Code;
+
+-- JOIN
+SELECT Code FROM Site
+    LEFT JOIN Bird_eggs ON Bird_eggs.Site = Site.Code
+    WHERE Site IS NULL
+    ORDER BY Code;
