@@ -1,1 +1,4 @@
 */data
+database.duckdb
+walkability.*
+walk_export.csv
