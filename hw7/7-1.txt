@@ -1,0 +1,29 @@
+------- Part 1 -------
+Perform a Python-style string interpolation by hand, that is, write out the exact string that results when Little Bobby Tables’ “name” is substituted for the %s in the above query. Explain how the database will interpret the resulting string. Explain why Bobby’s “name” has two hyphens (--) at the end.
+
+SELECT *
+    FROM Students
+    WHERE (name = '%s' AND year = 2026);
+
+The exact string that will result after the substitution will be:
+    WHERE (name = 'Robert'); DROP TABLE Students; --' AND year = 2026);
+since the single quote in the input closes the input early and the double hyphen comments out the rest of the string, the SQL that is executed is now two commands.
+1. SELECT * FROM Students WHERE (name = 'Robert');
+2. DROP TABLE Students;
+
+This results in the first query being successfully executed, returning rows whose name is Robert. However, this also executes a second query that drops the entire Students table, resulting in the loss of the entire Students records.
+
+------- Part 2 -------
+Suppose instead the school system executed the query:
+
+SELECT *
+    FROM Students WHERE name = '%s';
+What slightly different “name” would Little Bobby Tables use to destroy things in that case?
+
+Robert'; DROP TABLE Students;--
+
+Result after substitution:
+SELECT * FROM Students WHERE name = 'Robert'; DROP TABLE Students;--';
+
+The only difference is there's no AND year = 2026 addition to the WHERE clause? I'm not sure what this question was getting at.
+

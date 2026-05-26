@@ -1,0 +1,44 @@
+---
+title: "Homework 6-1"
+---
+
+```{r}
+library(dbplyr)
+library(duckdb)
+library(tidyverse)
+```
+
+```{r}
+conn <- dbConnect(duckdb(), dbdir = 'database.duckdb')
+dbListTables(conn)
+```
+
+```{r}
+egg_table  <- tbl(conn, 'Bird_eggs')
+nest_table <- tbl(conn, 'Bird_nests')
+person_table <- tbl(conn, 'Personnel')
+```
+
+```{r}
+egg_table |> head()
+person_table |> head()
+nest_table |> head()
+```
+
+
+```{r}
+egg_table |> 
+    left_join(nest_table, by = 'Nest_ID') |> 
+    group_by(Observer) |> 
+    summarise(total_eggs = n()) |> 
+    left_join(person_table, by = join_by(Observer == Abbreviation)) |> 
+    select(Name, total_eggs) |> 
+    arrange(desc(total_eggs)) |> 
+    head(3) |> show_query()
+```
+
+Since I didn't use multiple R statements, `dbplyr` didn't make a temporary table, all was done in one query. At the end of the query, it used a LIMIT 3 clause.
+
+```{r}
+dbDisconnect(conn, shutdown = TRUE)
+```
