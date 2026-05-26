@@ -1,0 +1,17 @@
+-- See bash homework: https://ucsb-library-research-data-services.github.io/bren-eds213/modules/week05/bash-essentials.html
+
+1. ls: lists files in current directory. ls .: lists files in current directory explicitly stating 'here'. Third option: lists files in directory explicitly stating absolute file path
+
+2. cat *.csv prints the contents of the five csvs, piping into wc -l, counts the number of rows for all of the five csvs.
+
+3. Only the specificied csv is returned by the second part of the statement so cat .*csv will only include that one file.
+
+4. Add curly brackets around name, echo "${name}_Howard".
+
+5. The $1 variable will be the first csv returned when expanding *.csv. The $# variable will be the total amount of csvs in the current directory. The script will not see just one argument passed to it as it will receive the total amount of csvs, however many matches *.csv.
+
+6. The variable $1 will be the full date string. Since there's no quotes around the second argument, the variable $3 will be the third word of the date.
+
+7. After sort junk_file.txt > junk_file.txt, the .txt file becomes blank. This is due to the shell seeing > junk_file.txt first, opening it for writing and truncates to zero bytes, deleting the lines of text. Then the sort doesn't have anything to sort and will return an empty file. To sort the file: sort junk_file.txt > sorted_file.txt && mv sorted_file.txt junk_file.txt.
+
+8. The command rm * will remove all files in the current directory, as there are now two seperate arguments being passed.

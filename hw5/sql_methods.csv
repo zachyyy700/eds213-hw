@@ -1,0 +1,16 @@
+label,avg_time,num_reps
+subquery1,.0200000,50
+subquery2,0,50
+subquery3,.0200000,50
+subquery4,.0140000,500
+subquery5,.0158000,10000
+outer_join1,.0200000,100
+outer_join2,.0125000,80
+outer_join3,.0200000,50
+outer_join5,.0333333,30
+outer_join6,.0160000,500
+outer_join7,.0147000,10000
+except1,.0200000,50
+except2,.0100000,100
+except3,.0200000,100
+except4,.0171000,10000
