@@ -30,13 +30,6 @@ CREATE VIEW Walkind_hi AS
 SELECT NatWalkInd FROM Walkind_hi
     WHERE ST_WITHIN(st_point(-157.84706115855602, 21.29279375395358), geom_wgs84);
 
--- wrong aggregation
--- SELECT TRACTCE, COUNT(*) AS Block_count, ROUND(AVG(NatWalkInd), 2) AS avg_walk_index
---     FROM Walkind_hi
---     WHERE County_name = 'HONOLULU' AND
---     ST_WITHIN(st_point(-157.84516919260497, 21.291637847455366), geom_wgs84)
---     GROUP BY TRACTCE;
-
 -- 2. one tract: tract that contains our point contains 7 block groups has avg walk index of 16.33
 SELECT TRACTCE, COUNT(*) AS block_count, ROUND(AVG(NatWalkInd), 2) AS avg_walk_index
     FROM Walkind_hi

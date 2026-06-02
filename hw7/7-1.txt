@@ -27,3 +27,28 @@ SELECT * FROM Students WHERE name = 'Robert'; DROP TABLE Students;--';
 
 The only difference is there's no AND year = 2026 addition to the WHERE clause? I'm not sure what this question was getting at.
 
+------- Bonus -------
+*The following was done in a Jupyter notebook*
+
+*After importing duckdb and connecting to database.duckdb*
+
+personnel = conn.execute("SELECT * FROM Personnel").df()
+print(f'Personnel has {personnel.shape[0]} rows.')
+
+# craft query to be executed, filled in by user input with python string interpolation
+query = "SELECT * FROM Species WHERE Code = '%s'"
+
+# craft devious sql insertion
+devious_input = "wolv'; INSERT INTO Personnel (Abbreviation, Name) VALUES ('tswift', 'Taylor Swift');--"
+
+# confirm output
+print(query % (devious_input))
+
+# execute query with input
+conn.execute(query % devious_input)
+
+# confirm insertion into Personnel
+conn.execute("SELECT * FROM Personnel WHERE Abbreviation = 'tswift'").fetchall()
+
+personnel_ts = conn.execute("SELECT * FROM Personnel").df()
+print(f'Personnel has {personnel_ts.shape[0]} rows.')
